@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Independent Oz Liveness</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <!-- Official Oz SDK -->
+  <script src="https://web-sdk.spain.prod.ozforensics.com/blsinternational/plugin_liveness.php" crossorigin="anonymous"></script>
+  <style>
+    html,body{height:100%;margin:0;background:#000;color:#fff;font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;
+      display:flex;align-items:center;justify-content:center}
+    #box{position:absolute;top:16px;left:16px;background:#111;padding:8px 12px;border-radius:8px;color:#ccc;font-size:14px}
+    #msg{opacity:.9}
+    button{position:absolute;top:16px;right:16px;background:#444;color:#fff;border:none;border-radius:8px;
+      padding:6px 10px;cursor:pointer}
+  </style>
+</head>
+<body>
+  <div id="box">Oz Launcher — waiting for SDK…</div>
+  <div id="msg">Loading…</div>
+  <button id="closeBtn" onclick="window.close()">✖ Close</button>
+
+  <script>
+    // Lower camera requirements to reduce chance of GPU/driver crash
+    (function softenGetUserMedia(){
+      const orig = navigator.mediaDevices && navigator.mediaDevices.getUserMedia;
+      if (!orig) return;
+      navigator.mediaDevices.getUserMedia = (constraints)=> {
+        const low = { video: { width:{ideal:640}, height:{ideal:480}, frameRate:{ideal:15, max:20} }, audio:false };
+        // if caller passed constraints, prefer low unless they’re stricter
+        try { return orig.call(navigator.mediaDevices, low); } catch(e){ return orig.call(navigator.mediaDevices, constraints); }
+      }
+    })();
+
+    // Small helper
+    const sleep = (ms)=> new Promise(r=>setTimeout(r,ms));
+
+    (async () => {
+      const box = document.getElementById('box');
+      const msg = document.getElementById('msg');
+
+      // Read params from URL: ?u=<user_id>&t=<transaction_id>
+      const p = new URLSearchParams(location.search);
+      const user_id = p.get('u');
+      const transaction_id = p.get('t');
+
+      if (!user_id || !transaction_id) {
+        msg.innerHTML = "<span style='color:#f66'>Missing user_id / transaction_id</span>";
+        return;
+      }
+      box.textContent = "Oz Launcher — got params";
+
+      // Wait for SDK to exist
+      const start = Date.now();
+      while (!window.OzLiveness) {
+        if (Date.now() - start > 30000) {
+          msg.innerHTML = "<span style='color:#f66'>SDK timeout</span>";
+          throw new Error("SDK timeout");
+        }
+        await sleep(250);
+      }
+      box.textContent = "Oz Launcher — SDK ready";
+
+      // Launch
+      msg.textContent = "Launching Oz Liveness…";
+      OzLiveness.open({
+        lang: "en",
+        meta: { user_id, transaction_id },
+        overlay_options: false,
+        action: ["video_selfie_blank"],
+        result_mode: "safe",
+        on_complete: (result) => {
+          console.log("✅ Liveness completed:", result);
+          msg.innerHTML = "<span style='color:#0f0'>Done!</span><br/>Session ID: " + result.event_session_id;
+
+          // Send it back to the opener (BLS tab)
+          try {
+            if (window.opener) {
+              window.opener.postMessage({ type: "oz-result", event_session_id: result.event_session_id }, "*");
+            }
+          } catch (e) { console.warn("postMessage failed:", e); }
+
+          setTimeout(() => window.close(), 5000);
+        }
+      });
+    })().catch(err => {
+      console.error(err);
+      document.getElementById('msg').innerHTML = "<span style='color:#f66'>Error: " + err + "</span>";
+    });
+  </script>
+</body>
+</html>
