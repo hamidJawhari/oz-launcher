@@ -25,7 +25,7 @@
         action: ["video_selfie_blank"],
         result_mode: "safe",
         on_complete: r => {
-          alert("✅ Session ID: " + r.event_session_id);
+          console.log("✅ Session ID: " + r.event_session_id);
           window.opener?.postMessage({ type: "oz-result", event_session_id: r.event_session_id }, "*");
           window.close();
         }
