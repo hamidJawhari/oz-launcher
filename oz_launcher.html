@@ -18,18 +18,22 @@
       const user_id = urlParams.get("u") || "dummy-user";
       const transaction_id = urlParams.get("t") || "dummy-transaction";
 
-      OzLiveness.open({
-        lang: "en",
-        meta: { user_id, transaction_id },
-        overlay_options: false,
-        action: ["video_selfie_blank"],
-        result_mode: "safe",
-        on_complete: r => {
-          console.log("✅ Session ID: " + r.event_session_id);
-          window.opener?.postMessage({ type: "oz-result", event_session_id: r.event_session_id }, "*");
-          window.close();
-        }
-      });
+        OzLiveness.open({
+            lang: 'en',
+            meta: {
+                'user_id': user_id,
+                'transaction_id': transaction_id
+            },
+            overlay_options: false,
+            action: [
+                'video_selfie_blank'
+            ],
+            result_mode: 'safe',
+            on_complete: function (result) {
+                console.log(result.event_session_id)
+            }
+        });
+
     });
   </script>
 </body>
